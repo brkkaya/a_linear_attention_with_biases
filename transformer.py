@@ -1,8 +1,4 @@
-#%%
-import math
 import torch.nn as nn
-import torch
-from einops import rearrange
 from aLiBi import MHA_aLiBi
 
 
@@ -50,32 +46,58 @@ class DecoderLayer(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, dim_model: int, n_head: int) -> None:
+    def __init__(self, dim_model: int, n_head: int, n_layer: int) -> None:
         super(Encoder, self).__init__()
-        self.enc = nn.ModuleList(EncoderLayer(dim_model=dim_model, n_head=n_head))
+        self.enc = nn.ModuleList([EncoderLayer(dim_model=dim_model, n_head=n_head) for _ in range(n_layer)])
 
     def forward(self, x, mask=None):
         return self.enc(x, mask)
 
 
 class Decoder(nn.Module):
-    def __init__(self, dim_model: int, n_head: int) -> None:
+    def __init__(self, dim_model: int, n_head: int, n_layer: int, is_decoder_only: bool) -> None:
         super(Decoder, self).__init__()
-        self.dec = nn.ModuleList(DecoderLayer(dim_model=dim_model, n_head=n_head))
+        self.dec = nn.ModuleList(
+            [DecoderLayer(dim_model=dim_model, n_head=n_head, is_decoder_only=is_decoder_only) for _ in range(n_layer)]
+        )
 
     def forward(self, q, k, v, mask):
         return self.dec(q, k, v, mask)
 
 
 class Transformer(nn.Module):
-    def __init__(self, dim_model: int, n_head: int, ctx_len: int,vocab_size: int, is_decoder_only: bool = True) -> None:
+    def __init__(
+        self,
+        dim_model: int,
+        n_head: int,
+        ctx_len: int,
+        n_layer: int,
+        vocab_size: int,
+        is_decoder_only: bool = True,
+        return_last_hidden_state: bool = False,
+    ) -> None:
         super(Transformer, self).__init__()
         self.dim_model = dim_model
         self.n_head = n_head
         self.ctx_len = ctx_len
         self.is_decoder_only = is_decoder_only
-
-        self.tok_embedding = nn.Embedding()
+        self.return_last_hidden_state = return_last_hidden_state
+        self.tok_embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=dim_model)
         if not is_decoder_only:
-            self.enc = 
-            pass
+            self.enc = Encoder(dim_model=dim_model, n_head=n_head, n_layer=n_layer)
+
+        self.dec = Decoder(dim_model=dim_model, n_head=n_head, n_layer=n_layer, is_decoder_only=is_decoder_only)
+        self.out = nn.Linear(dim_model, vocab_size)
+        self.gelu = nn.GELU()
+
+    def forward(self, dec_inputs, dec_mask, enc_inputs=None, enc_mask=None):
+        if not self.is_decoder_only:
+            enc_emb = self.tok_embedding(enc_inputs)
+            enc_state = self.enc(enc_emb, enc_mask)
+
+        dec_emb = self.tok_embedding(dec_inputs)
+        hidden_state = self.dec(enc_state, enc_state, dec_emb, dec_mask)
+        lm_head = self.out(hidden_state)
+        if self.return_last_hidden_state:
+            return lm_head, hidden_state
+        return lm_head
