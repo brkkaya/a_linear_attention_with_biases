@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch
 from einops import rearrange
 
+
 class MHA_aLiBi(nn.Module):
     def __init__(self, dim_model: int, n_head: int, ctx_len: int) -> None:
         super(MHA_aLiBi, self).__init__()
@@ -48,13 +49,7 @@ class MHA_aLiBi(nn.Module):
 
         return torch.matmul(alibi_attn, v)
 
-    def forward(
-        self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        mask: torch.Tensor = None,
-    ):
+    def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor = None):
         wq = self.wq(q)
         wk = self.wk(k)
         wv = self.wv(v)
@@ -69,4 +64,3 @@ class MHA_aLiBi(nn.Module):
 def decoder_mask(ctx_len: int) -> torch.Tensor:
     mask = torch.triu(torch.ones(ctx_len, ctx_len)).T
     return mask.view(1, 1, ctx_len, ctx_len)
-
