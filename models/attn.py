@@ -1,4 +1,3 @@
-import math
 from typing import Optional
 import torch.nn as nn
 import torch
@@ -38,7 +37,7 @@ class AliBiAttention(nn.Module):
         key = self.q(k)  # batch_size x seq_len x hid_dim
         value = self.q(v)  # batch_size x seq_len x hid_dim
         query, key, value = (
-            qkv.view(batch_size, seq_len, self.n_head, self.head_dim).transpose(1, 2) for qkv in [query, key, value]
+            qkv.view(batch_size, self.n_head, seq_len, self.head_dim).transpose(1, 2) for qkv in [query, key, value]
         ) 
         # # batch_size x seq_len x n_head x head_dim
         scaled_attn = self.scaled_dot_product(query, key, value, mask) # apply scaled dot product 
