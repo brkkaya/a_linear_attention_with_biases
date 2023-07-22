@@ -16,7 +16,7 @@ class AliBiAttention(nn.Module):
         self.q = nn.Linear(hid_dim, hid_dim, bias=bias)
         self.k = nn.Linear(hid_dim, hid_dim, bias=bias)
         self.v = nn.Linear(hid_dim, hid_dim, bias=bias)
-        self.out = nn.Linear(hid_dim, hid_dim, bias=True)
+        self.out = nn.Linear(hid_dim, hid_dim, bias=bias)
         self.dropout = nn.Dropout(dropout)
 
     def get_slopes(self):
@@ -24,7 +24,7 @@ class AliBiAttention(nn.Module):
         In their github repository which is quite complex to find algorithm quickly,
         they add a small adjustment for other head sizes.
         Main algorithm is up to if part, but the author solution was adding m values to other heads also.
-
+        To reach paper: (Press et al. 2021) https://arxiv.org/pdf/2108.12409.pdf
         Returns:
             torch.Tensor: slope values of aLiBi
         """
@@ -43,13 +43,15 @@ class AliBiAttention(nn.Module):
     def scaled_dot_product(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ):
-
+        seq_len = q.shape[0]
         qk = torch.bmm(q, k.transpose(2, 3))
+
+        attn = qk + (self.get_slopes() * self.alibi_biases(seq_len=seq_len))
         # we do not scale on AliBi bias
         if mask is not None:
-            qk = qk.masked_fill_(mask, -1e9)
+            attn = attn.masked_fill_(mask, -1e9)
 
-        scaled_attn = torch.softmax(qk, dim=-1)
+        scaled_attn = torch.softmax(attn, dim=-1)
         scaled_attn = torch.bmm(scaled_attn, v)
         return scaled_attn
 
