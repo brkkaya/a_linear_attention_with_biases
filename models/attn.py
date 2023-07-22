@@ -2,7 +2,6 @@ import math
 from typing import Optional
 import torch.nn as nn
 import torch
-from einops import rearrange
 
 
 class AliBiAttention(nn.Module):
@@ -12,6 +11,7 @@ class AliBiAttention(nn.Module):
         self.n_head = n_head
         self.dropout = dropout
         self.head_dim = hid_dim // n_head
+        self.dk = math.sqrt(hid_dim)
         assert hid_dim % n_head == 0
         self.q = nn.Linear(hid_dim, hid_dim, bias=bias)
         self.k = nn.Linear(hid_dim, hid_dim, bias=bias)
@@ -37,6 +37,7 @@ class AliBiAttention(nn.Module):
             m = torch.cat([m, intra_heads])
         return m
 
+    @torch.no_grad()
     def alibi_biases(self, seq_len: int):
         return torch.tril(-torch.arange(0, seq_len).unsqueeze(1) + torch.arange(0, seq_len))
 
@@ -44,16 +45,19 @@ class AliBiAttention(nn.Module):
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ):
         seq_len = q.shape[0]
-        qk = torch.bmm(q, k.transpose(2, 3))
+        qk = torch.bmm(q, k.transpose(2, 3)) # batch_size x n_head x seq_len x seq_len
 
         attn = qk + (self.get_slopes() * self.alibi_biases(seq_len=seq_len))
-        # we do not scale on AliBi bias
+        # adding alibi biases to qk, this does not break the mask
         if mask is not None:
             attn = attn.masked_fill_(mask, -1e9)
 
         scaled_attn = torch.softmax(attn, dim=-1)
         scaled_attn = torch.bmm(scaled_attn, v)
         return scaled_attn
+
+    def prepare_mask(self, mask: torch.Tensor):
+        return mask.unsqueeze(1) # batch_size x seq_len
 
     def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None):
         batch_size, seq_len, _ = q.shape

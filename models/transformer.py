@@ -1,5 +1,5 @@
 import torch.nn as nn
-from aLiBi import MHA_aLiBi
+from attn import AliBiAttention
 
 
 class EncoderLayer(nn.Module):
