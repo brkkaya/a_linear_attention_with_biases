@@ -31,6 +31,7 @@ class AliBiAttention(nn.Module):
         main_heads_size = 2 ** int(math.log2(self.n_head))
         m_main = 2.0 ** (-8.0 / main_heads_size)
         m = torch.pow(m_main, torch.arange(1, 1 + main_heads_size))
+
         if main_heads_size < self.n_head:
             intra_heads = 2.0 ** (-4.0 / main_heads_size)
             intra_heads = torch.pow(intra_heads, torch.arange(1, 1 + 2 * (self.n_head - main_heads_size), 2))
@@ -48,7 +49,7 @@ class AliBiAttention(nn.Module):
         qk = torch.matmul(q, k.transpose(2, 3))  # batch_size x n_head x seq_len x seq_len
 
         attn = qk + (self.get_slopes() * self.alibi_biases(seq_len=seq_len))
-        # adding alibi biases to qk, this does not break the mask
+        
         if mask is not None:
             mask = self.prepare_mask(mask)
             attn = attn.masked_fill(mask == 0, -1e9)
@@ -73,7 +74,7 @@ class AliBiAttention(nn.Module):
         scaled_attn = self.scaled_dot_product(query, key, value, mask)  # apply scaled dot product
 
         scaled_attn = scaled_attn.permute(0, 2, 1, 3)
-        attn = scaled_attn.view(-1, seq_len, self.hid_dim)
+        attn = scaled_attn.reshape(-1, seq_len, self.hid_dim)
 
         attn = self.dropout(attn)  # apply dropout as paper says
         return self.out(attn)
