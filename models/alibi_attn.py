@@ -78,4 +78,3 @@ class AliBiAttention(nn.Module):
 
         attn = self.dropout(attn)  # apply dropout as paper says
         return self.out(attn)
-
