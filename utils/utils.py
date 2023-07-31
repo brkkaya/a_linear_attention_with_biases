@@ -1,13 +1,16 @@
 import torch
 from transformers import AutoTokenizer
 from tqdm import tqdm
+
 IGNORE_INDEX = -1
 
 
 def prepare_dataset(data: list, tokenizer: AutoTokenizer, max_length: int = None):
     if max_length is None:
         max_length = tokenizer.model_max_length
-    return [prepare_instance(sample, tokenizer=tokenizer, max_length=max_length) for sample in tqdm(data)]
+    return [
+        prepare_instance(sample, tokenizer=tokenizer, max_length=max_length, mask_inputs=False) for sample in tqdm(data)
+    ]
 
 
 def prepare_instance(example: dict, tokenizer: AutoTokenizer, max_length: int, mask_inputs: bool = True):
@@ -23,12 +26,12 @@ def prepare_instance(example: dict, tokenizer: AutoTokenizer, max_length: int, m
     # The labels are the full prompt with response, but with the prompt masked out
     labels = encoded_full_prompt_and_response.clone()
     if mask_inputs:
-        labels[: encoded_full_prompt_len] = IGNORE_INDEX
+        labels[:encoded_full_prompt_len] = IGNORE_INDEX
 
     return {
         **example,
         "input_ids": encoded_full_prompt_and_response,
-        "input_ids_no_response": encoded_full_prompt,
+        # "input_ids_no_response": encoded_full_prompt,
         "labels": labels,
     }
 
