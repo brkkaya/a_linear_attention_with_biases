@@ -45,25 +45,36 @@ def create_dataloaders(data: pd.DataFrame, tokenizer, batch_size=8, shuffle=True
 def data_loading_custom_dataset(
     dataset_path: str,
     tokenizer_name: str,
+    test_size: int,
     batch_size: int = 8,
     shuffle: bool = True,
     num_workers: int = 4,
 ):
     # Load the dataset
     if ".csv" in dataset_path:
-        data = pd.read_csv(dataset_path).to_dict("dict")
+        data = pd.read_csv(dataset_path).to_dict("records")
     elif ".json" in dataset_path:
-        data = pd.read_json(dataset_path).to_dict("dict")
+        data = pd.read_json(dataset_path)
+        # data.rename({"input":"context","output":"response"},axis=1,inplace=True)
+        data = data.to_dict("records")
     elif ".xlsx" in dataset_path:
-        data = pd.read_excel(dataset_path).to_dict("dict")
+        data = pd.read_excel(dataset_path).to_dict("records")
     else:
         raise "Couldn't find the data in path"
     # Create the tokenizer
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    tokenizer()
-    dataset = CustomDataset(data, tokenizer=tokenizer, collate_fn=prepare_dolly)
-    dataloader = create_dataloaders(dataset, tokenizer, batch_size, shuffle, num_workers)
-    return dataloader
+    tokenizer.add_special_tokens({"pad_token": "<pad>"})
+    train_size = len(data) - test_size
+    train_set, test_set = random_split(
+        data,
+        lengths=(train_size, test_size),
+        generator=torch.Generator().manual_seed(SEED),
+    )
+    train_dataset = CustomDataset(train_set, tokenizer=tokenizer, collate_fn=prepare_dolly)
+    test_dataset = CustomDataset(test_set, tokenizer=tokenizer, collate_fn=prepare_dolly)
+    train_dataloader = create_dataloaders(train_dataset, tokenizer, batch_size, shuffle, num_workers)
+    test_dataloader = create_dataloaders(test_dataset, tokenizer, batch_size, shuffle, num_workers)
+    return train_dataloader, test_dataloader
 
 
 def data_loading_hf_dataset(
