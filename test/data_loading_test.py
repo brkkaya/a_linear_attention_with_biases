@@ -17,3 +17,4 @@ def test_custom_loading():
         break
 
 test_custom_loading()
+test_hf_loading()
