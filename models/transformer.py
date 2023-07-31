@@ -34,13 +34,24 @@ class DecoderLayer(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, dim_model: int, n_head: int, n_layer: int, is_decoder_only: bool) -> None:
+    def __init__(self, dim_model: int, n_head: int, n_layer: int, vocab_dim: int) -> None:
         super(Decoder, self).__init__()
+        self.embedding = nn.Embedding(vocab_dim, dim_model)
         # Create a list of decoder layers
-        self.dec = nn.ModuleList(
-            [DecoderLayer(dim_model=dim_model, n_head=n_head, is_decoder_only=is_decoder_only) for _ in range(n_layer)]
-        )
+        self.dec = nn.ModuleList([DecoderLayer(dim_model=dim_model, n_head=n_head) for _ in range(n_layer)])
+        self.lm_head = nn.Linear()
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor):
+    def forward(self, x: torch.Tensor, mask: torch.Tensor, targets: torch.Tensor):
         # Return the decoder
-        return self.dec(x, mask)
+        for decoder_layer in self.dec:
+            x = decoder_layer(x, mask)
+        if targets is not None:
+            # if we are given some desired targets also calculate the loss
+            logits = self.lm_head(x)
+            loss = nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+        else:
+            # inference-time mini-optimization: only forward the lm_head on the very last position
+            logits = self.lm_head(x[:, [-1], :])  # note: using list [-1] to preserve the time dim
+            loss = None
+
+        return logits, loss
