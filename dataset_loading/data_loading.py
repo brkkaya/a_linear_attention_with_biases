@@ -4,57 +4,43 @@ import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from transformers import AutoTokenizer
 from datasets import load_dataset
-from utils.utils import prepare_dataset
+from utils.utils import generate_prompt
 
-PAD_TOKEN_ID = 0
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
 SEED = 42
 
-def data_loading_custom_dataset(
-    dataset_path: str,
-    tokenizer_name: str,
-    test_size: int,
-    batch_size: int = 8,
-    shuffle: bool = True,
-    num_workers: int = 4,
-):
-    """Loaded dataset fields must have three columns or fields which are ['instruction','input','output']"""
-    if ".csv" in dataset_path:
-        data = pd.read_csv(dataset_path).to_dict("records")
-    elif ".json" in dataset_path:
-        data = pd.read_json(dataset_path).to_dict("records")
-        # data.rename({"input":"context","output":"response"},axis=1,inplace=True)
-    elif ".xlsx" in dataset_path:
-        data = pd.read_excel(dataset_path).to_dict("records")
+
+def import_data(data_name_or_path: str):
+    if "json" in data_name_or_path:
+        data = load_dataset("json", data_files=data_name_or_path)
+    elif "csv" in data_name_or_path:
+        data = load_dataset("csv", data_files=data_name_or_path)
     else:
-        raise "Couldn't find the data in path"
-    # Create the tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    tokenizer.add_special_tokens({"pad_token": "<pad>"})
-    train_size = len(data) - test_size
-    train_set, test_set = random_split(
-        data,
-        lengths=(train_size, test_size),
-        generator=torch.Generator().manual_seed(SEED),
-    )
-    train_dataset = CustomDataset(train_set, tokenizer=tokenizer, collate_fn=prepare_dataset)
-    test_dataset = CustomDataset(test_set, tokenizer=tokenizer, collate_fn=prepare_dataset)
-    train_dataloader = DataLoader(train_dataset, batch_size, shuffle=False, num_workers=num_workers)
-    test_dataloader = DataLoader(test_dataset, batch_size, shuffle=False, num_workers=num_workers)
-    return train_dataloader, test_dataloader
+        data = load_dataset(data_name_or_path)
+    return data
 
 
-def data_loading_hf_dataset(
-    dataset_path: str,
-    tokenizer_name: str,
-    test_size: int,
-    batch_size: int = 8,
-    shuffle: bool = True,
-    num_workers: int = 4,
-):
-    """Loaded dataset fields must have three columns or fields which are ['instruction','input','output']"""
-    data = load_dataset(dataset_path)["train"]
-    # Create the tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+def tokenize(prompt: str, add_oes_token: bool = True):
+    result = tokenizer(prompt, return_tensors=None, padding=False)
+    if result["input_ids"][-1] != tokenizer.eos_token_id and add_oes_token:
+        result["input_ids"].append(tokenizer.eos_token_id)
+        result["attention_mask"].append(1)
+    result["labels"] = result["input_ids"].copy()
+    return result
 
-    
-    return train_dataset, test_dataset
+
+def process_tokenize_instance(instance: dict):
+    text_input = generate_prompt(instance)
+    tokenized_input = tokenize(prompt=text_input, add_oes_token=True)
+    return tokenized_input
+
+
+def apply_process(data_name_or_path: str):
+    data = import_data(data_name_or_path)
+    data["train"].train_test_split(test_size=200, seed=SEED, shuffle=True)
+    train_data = data["train"].map(process_tokenize_instance)
+    test_data = data["test"].map(process_tokenize_instance)
+
+def data_collator():
+    # re-implementation of transformers.DataCollatorSeq2Seq
+    pass
