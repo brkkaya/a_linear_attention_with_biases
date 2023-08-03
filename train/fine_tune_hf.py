@@ -1,10 +1,9 @@
 from transformers import Trainer, TrainingArguments, GPT2LMHeadModel, AutoTokenizer
 from dataset_loading.data_loading import DataLoading
 import torch
-device = "cpu"
 
 # Define the model and other necessary objects
-model = GPT2LMHeadModel.from_pretrained("gpt2").to(device)  # Define your model
+model = GPT2LMHeadModel.from_pretrained("gpt2")  # Define your model
 tokenizer = AutoTokenizer.from_pretrained("gpt2")  # Define your tokenizer
 tokenizer.pad_token_id = 0
 data_process = DataLoading(tokenizer=tokenizer)
@@ -33,7 +32,6 @@ training_arguments = TrainingArguments(
     save_total_limit=3,
     load_best_model_at_end=True,
     report_to="tensorboard",
-    no_cuda=True,
 )
 trainer = Trainer(
     model=model,
