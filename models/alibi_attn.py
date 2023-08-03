@@ -40,6 +40,7 @@ class AliBiAttention(nn.Module):
             m = torch.cat([m, intra_heads])
         # Return the m values
         return m[None, :, None, None]
+
     @torch.no_grad()
     def alibi_biases(self, seq_len: int):
         """
@@ -78,17 +79,23 @@ class AliBiAttention(nn.Module):
         """
         return mask[:, None, None, :]  # batch_size x seq_len
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None):
+    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, kv_cache: list = None):
         # x is a 3D tensor of shape (batch_size, seq_len, hidden_dim)
         batch_size, seq_len, _ = x.shape
         # split the 3D tensor into 3 separate tensors
         query, key, value = self.qkv(x).chunk(3, dim=-1)
+        if kv_cache is not None:
+            old_k, old_v = kv_cache
+            key = torch.cat([old_k, key], dim=1)
+            value = torch.cat([old_v, value], dim=1)
+        current_cache = [key, value]
 
         # reshape the 3D tensors into batch_size x seq_len x n_head x head_dim
         query, key, value = (
             qkv.reshape(batch_size, seq_len, self.n_head, self.head_dim).permute(0, 2, 1, 3)
             for qkv in [query, key, value]
         )
+
         # # batch_size x seq_len x n_head x head_dim
         scaled_attn = self.scaled_dot_product(query, key, value, mask)  # apply scaled dot product
 
@@ -100,4 +107,4 @@ class AliBiAttention(nn.Module):
         # apply dropout
         attn = self.dropout(attn)  # apply dropout as paper says
         # return the output of the layer
-        return self.out(attn)
+        return self.out(attn), current_cache
