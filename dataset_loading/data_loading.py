@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset
-from transformers import  PreTrainedTokenizerBase, 
+from transformers import  PreTrainedTokenizerBase
 from datasets import load_dataset
 from utils.utils import generate_prompt
 SEED = 42
