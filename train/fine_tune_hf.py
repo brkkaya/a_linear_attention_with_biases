@@ -1,9 +1,7 @@
-import torch
 from transformers import Trainer, TrainingArguments, GPT2LMHeadModel, AutoTokenizer
 from dataset_loading.data_loading import DataLoading
-import os
-
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
+import torch
+device = "cpu"
 
 # Define the model and other necessary objects
 model = GPT2LMHeadModel.from_pretrained("gpt2").to(device)  # Define your model
@@ -45,6 +43,6 @@ trainer = Trainer(
     data_collator=data_process.apply_padding,
 )
 
-# model = torch.compile(model)
+model = torch.compile(model)
 trainer.train()
 model.save_pretrained(OUTPUT_DIR)
