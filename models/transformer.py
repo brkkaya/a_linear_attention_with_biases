@@ -74,7 +74,9 @@ class Decoder(nn.Module):
         generated = prompt
         kv_cache = None
         for _ in range(max_new_tokens):
+            generation_size = generated.shape[-1]
             if kv_cache is None:
+                mask = torch.ones(generated.shape)[:,generation_size:]
                 logits, kv_cache, _ = self.forward(generated, mask=torch.ones(generated.shape), targets=None, kv_cache=kv_cache)
             else:
                 logits, kv_cache, _ = self(generated[..., [-1]], mask=torch.ones(generated.shape), targets=None, kv_cache=kv_cache)
@@ -97,6 +99,6 @@ class Decoder(nn.Module):
                 generated = torch.cat([generated, token_next.unsqueeze(1)], dim=1)
 
 
-model = Decoder(48, 4, 2, 5200)
-prompt = torch.randint(0, 5200, size=(1,20))
-model.generate(prompt=prompt, max_new_tokens=20, do_sample=True, top_p=0.95, top_k=100, temperature=0.9)
+# model = Decoder(48, 4, 2, 5200)
+# prompt = torch.randint(0, 5200, size=(1,20))
+# model.generate(prompt=prompt, max_new_tokens=20, do_sample=True, top_p=0.95, top_k=100, temperature=0.9)

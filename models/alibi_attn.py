@@ -81,7 +81,7 @@ class AliBiAttention(nn.Module):
 
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, kv_cache: list = None):
         # x is a 3D tensor of shape (batch_size, seq_len, hidden_dim)
-        batch_size, seq_len, _ = x.shape
+        batch_size = x.shape[0]
         # split the 3D tensor into 3 separate tensors
         query, key, value = self.qkv(x).chunk(3, dim=-1)
         if kv_cache is not None:
@@ -92,8 +92,7 @@ class AliBiAttention(nn.Module):
 
         # reshape the 3D tensors into batch_size x seq_len x n_head x head_dim
         query, key, value = (
-            qkv.reshape(batch_size, seq_len, self.n_head, self.head_dim).permute(0, 2, 1, 3)
-            for qkv in [query, key, value]
+            qkv.reshape(batch_size, -1, self.n_head, self.head_dim).permute(0, 2, 1, 3) for qkv in [query, key, value]
         )
 
         # # batch_size x seq_len x n_head x head_dim
