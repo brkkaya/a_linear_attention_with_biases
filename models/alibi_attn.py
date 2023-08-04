@@ -101,7 +101,7 @@ class AliBiAttention(nn.Module):
         # reshape the scaled_attn tensor into batch_size x seq_len x n_head x head_dim
         scaled_attn = scaled_attn.permute(0, 2, 1, 3)
         # apply dropout as paper says
-        attn = scaled_attn.reshape(-1, seq_len, self.hid_dim)
+        attn = scaled_attn.reshape(batch_size, -1, self.hid_dim)
 
         # apply dropout
         attn = self.dropout(attn)  # apply dropout as paper says
