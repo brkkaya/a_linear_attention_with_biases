@@ -41,6 +41,10 @@ class AliBiAttention(nn.Module):
         # Return the m values
         return m[None, :, None, None]
 
+    def casual_mask(self, mask: torch.Tensor):
+        seq_len = mask.shape[-1]
+        return torch.tril(torch.ones(1, 1, seq_len, seq_len))
+
     @torch.no_grad()
     def alibi_biases(self, seq_len: int):
         """
