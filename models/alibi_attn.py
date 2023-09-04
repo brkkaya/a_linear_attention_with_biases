@@ -3,7 +3,7 @@ from typing import Optional
 import torch.nn as nn
 import torch
 
-
+DEVICE = "cuda"
 class AliBiAttention(nn.Module):
     def __init__(self, hid_dim: int, n_head: int, dropout: float = 0.1, bias: bool = False) -> None:
         super(AliBiAttention, self).__init__()
@@ -39,18 +39,18 @@ class AliBiAttention(nn.Module):
             intra_heads = torch.pow(intra_heads, torch.arange(1, 1 + 2 * (self.n_head - main_heads_size), 2))
             m = torch.cat([m, intra_heads])
         # Return the m values
-        return m[None, :, None, None]
+        return m[None, :, None, None].to(DEVICE)
 
     def casual_mask(self, mask: torch.Tensor):
         seq_len = mask.shape[-1]
-        return torch.tril(torch.ones(1, 1, seq_len, seq_len))
+        return torch.tril(torch.ones(1, 1, seq_len, seq_len)).to(DEVICE)
 
     @torch.no_grad()
     def alibi_biases(self, seq_len: int):
         """
         This function calculates the lower triangular matrix of the alibi_biases.
         """
-        return torch.tril(-torch.arange(0, seq_len).unsqueeze(1) + torch.arange(0, seq_len))[None]
+        return torch.tril(-torch.arange(0, seq_len).unsqueeze(1) + torch.arange(0, seq_len))[None].to(DEVICE)
 
     def scaled_dot_product(
         self,
